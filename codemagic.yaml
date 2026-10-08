@@ -1,0 +1,62 @@
+workflows:
+  android-build:
+    name: Generals Zero Hour Android APK
+    instance_type: linux_x2
+    max_build_duration: 120
+
+    environment:
+      groups:
+        - android
+      vars:
+        ANDROID_NDK_HOME: /opt/android-sdk-linux/ndk/27.1.12297006
+        VCPKG_ROOT: /opt/vcpkg
+      java: 17
+
+    scripts:
+      - name: Install build dependencies
+        script: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git \
+            cmake \
+            ninja-build \
+            meson \
+            pkg-config \
+            python3 \
+            python3-pip \
+            build-essential \
+            curl \
+            unzip
+
+      - name: Prepare Android SDK and NDK
+        script: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" \
+                     "platforms;android-35" \
+                     "build-tools;35.0.0" \
+                     "ndk;27.1.12297006"
+
+      - name: Prepare vcpkg
+        script: |
+          if [ ! -d "$VCPKG_ROOT" ]; then
+            sudo git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+          fi
+
+          sudo "$VCPKG_ROOT/bootstrap-vcpkg.sh"
+
+      - name: Initialize submodules
+        script: |
+          git submodule update --init --recursive
+
+      - name: Build Generals Android engine
+        script: |
+          chmod +x scripts/build/android/build-android-zh.sh
+          ./scripts/build/android/build-android-zh.sh
+
+      - name: Package Android APK
+        script: |
+          chmod +x scripts/build/android/package-android-zh.sh
+          ./scripts/build/android/package-android-zh.sh
+
+    artifacts:
+      - android/app/build/outputs/apk/**/*.apk
